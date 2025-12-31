@@ -129,6 +129,7 @@ class OrganizationSimulation:
                 "sim_load": round(sim_load, 2),
                 "degree": round(degree_centrality.get(node, 0.0), 5),
                 "tasks": self.task_counts.get(node, 0),
+                "children": len(self.children[node]),
                 "score": round(score, 5),
             }
 
@@ -361,20 +362,20 @@ def main() -> None:
         avg_tasks = stats["tasks"] / stats["count"] if stats["count"] else 0.0
         lines.append(f"| {role} | {int(stats['count'])} | {avg_tasks:.2f} | {avg_load:.2f} |")
 
-        lines.extend(
-            [
-                "",
-                "## Node Details",
-                "",
-                "| Node | Role | Tasks | SimLoad | DegreeCentrality | Score |",
-                "| --- | --- | ---: | ---: | ---: | ---: |",
-            ]
+
+    lines.extend([
+        "",
+        "## Node Details",
+        "",
+        "| Node | Role | Tasks | Children | SimLoad | DegreeCentrality | Score |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+    ])
+
+    for node, metrics in sorted_items:
+        lines.append(
+            f"| {node} | {metrics['role']} | {metrics['tasks']} | {metrics['children']} | "
+            f"{metrics['sim_load']:.2f} | {metrics['degree']:.5f} | {metrics['score']:.5f} |"
         )
-        for node, metrics in sorted_items:
-            lines.append(
-                f"| {node} | {metrics['role']} | {metrics['tasks']} | {metrics['sim_load']:.2f} | "
-                f"{metrics['degree']:.5f} | {metrics['score']:.5f} |"
-            )
 
     result_path.write_text("\n".join(lines), encoding="utf-8")
 
