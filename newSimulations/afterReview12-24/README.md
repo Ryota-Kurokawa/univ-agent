@@ -1,4 +1,3 @@
-
 # 組織タスク負荷シミュレーション：実装設計まとめ（Draft）
 
 本ドキュメントは、
@@ -283,3 +282,8 @@ Centrality(v): グラフ構造由来の中心性（正規化）
     - 調整・説明コストとして `+0.3 × タスクの重さ`
   - 実行完了後の **報告** によって  
     - 中間層の受信ノードに `+0.1 × タスクの重さ` を加算する
+
+## ツール
+
+- `python refresh_report.py`: RESULT.md から Top/Average/Min を再集計します。
+- `python visualize_results.py`: Role averages / extremes / top nodes のグラフ (PNG) を出力します。

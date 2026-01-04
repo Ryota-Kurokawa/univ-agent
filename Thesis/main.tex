@@ -1,0 +1,37 @@
+\documentclass[a4paper,12pt]{report}
+\usepackage[a4paper,margin=25mm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+
+\title{組織タスク負荷シミュレーション要旨（簡易版）}
+\author{著者名}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\chapter{概要}
+本ドキュメントは、階層型組織のタスクフローをシミュレーションし、役職別の負荷分布を比較する研究の簡易メモである。詳細な章構成は今後拡張予定だが、まずは背景とアプローチを一つのファイルにまとめた。
+
+\section{背景}
+シニアマネジャー層に負荷が集中する実態を受け、構造パラメータを変更した複数シナリオを比較する。
+
+\section{アプローチ}
+\begin{itemize}
+    \item ベースライン（FinalStudy）と改良案（Final, BestPractice）を同一ルールでシミュレーション。
+    \item SimLoad と中心性を組み合わせた指標で比較。
+\end{itemize}
+
+\chapter{今後の構成案}
+\begin{enumerate}
+    \item 序論・関連研究
+    \item 手法（TaskRulebook, 組織構造）
+    \item シミュレーション結果
+    \item 考察・結論
+\end{enumerate}
+
+\end{document}
