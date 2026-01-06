@@ -1,0 +1,74 @@
+\chapter{提案手法}
+\label{chap:method}
+
+本章では、本研究で実際に実装した組織タスク負荷シミュレーション手法を詳細に述べる。研究目的は、中間管理職に集中する情報処理負荷を定量化し、構造パターンごとの偏りを評価することである。手法は、(1) 5 層階層組織のグラフモデル化、(2) TaskAgent によるタスク生成と流通のシミュレーション、(3) SimLoad と中心性を指標とした評価、(4) Python 実装および再現性確保の仕組み、の 4 つの要素から構成される。
+
+\section{組織グラフモデル}
+
+\subsection{階層構造と子ノード範囲}
+対象組織は CXO $\rightarrow$ Director $\rightarrow$ SeniorManager $\rightarrow$ Manager $\rightarrow$ Player の 5 層で構成される。階層間の子ノード数はシナリオごとにレンジを持たせ、乱数により具体的な扇状度を決定する。FinalStudy では
+\[
+\begin{aligned}
+|Child_{CXO}| &\in [15, 20], \\
+|Child_{Director}| &\in [10, 15], \\
+|Child_{SeniorManager}| &\in [10, 15], \\
+|Child_{Manager}| &\in [5, 10]
+\end{aligned}
+\]
+と設定し、中間層に幅広い子数を持たせて現在の偏りを再現した。一方 Final シナリオは Manager 層を 1526 名に抑えつつ Player を 2.3 万名規模に確保する構造を採用し、BestPractice では SeniorManager の子数を 8--9、人員負荷の大きい Manager は 14--16 の配下を持つよう再設計している。
+
+\subsection{ノード属性とエッジ}
+グラフ $G = (V, E)$ の各ノード $v \in V$ には role, children, tasks, sim\_load などの属性を付与する。エッジ集合 $E$ は親子関係を表す有向エッジであり、TaskAgent の移動はこの階層エッジを経由して行う。各ノードには入出力キューを持たせ、タスク滞留量を追跡することで、実務で発生する案件の渋滞状況を模擬する。
+
+\section{TaskAgent によるタスクフロー}
+
+\subsection{TaskAgent モデル}
+TaskAgent はタスクを表す最小単位であり、\texttt{task\_rules.py} に実装したデータクラスで管理する。属性は ID、タスク種別（TopDown/Design/Execution/Interrupt）、TaskWeight（difficulty, stakeholders, coordination, ambiguity）、発生ノード、現在地、訪問履歴、状態（Created $\rightarrow$ Delegated $\rightarrow$ InProgress $\rightarrow$ Done $\rightarrow$ Reported $\rightarrow$ Escalated）で構成される。状態遷移ごとに \texttt{move\_to} を呼び出して位置と履歴を更新し、負荷計算と連動させる。
+
+\subsection{タスク生成と TaskWeight}
+各ノードは役職に応じて Poisson($\lambda=2$) をベースにタスクを生成する。生成確率は CXO 0.20、Director 0.40、Manager 0.60、Player 0.05 と設定した。タスク種別は役職ごとの重み（例：Director は TopDown 25\%, Design 45\%, Execution 20\%, Interrupt 10\%）でサンプリングし、TaskWeight は種類ごとの離散レンジから乱数抽出する。TopDown は difficulty 6--10、stakeholders 4--8 など、実地ヒアリングで得られた負荷イメージを再現するレンジを設定済みである。
+
+\subsection{移動・分割・報告ルール}
+TaskAgent が子ノードを持つ役職に滞在し、状態が Created/Delegated のときは以下のルールで処理する。
+\begin{itemize}
+    \item Director と Manager はタスクの 60\% を 3 分割して子ノードへ渡し、残り 40\% を自分で保持する。分割時には $0.2w$ の分割コストを自身の SimLoad に加算する。
+    \item 子ノード選択は「SimLoad が最も低いノード」を 60\% の確率で選び、残りはランダム選択とすることで過負荷集中を緩和する。
+    \item 子ノードを持たない場合は InProgress へ移行し、自ノードで処理する。
+\end{itemize}
+タスクが Done になると親ノードへ報告し、受信側には $0.1w$ の負荷を追加する。その後、総重量が 30 以上または 5\% の確率で Escalation が発生し、上位ノードへ再送される。Escalation は親が存在する限り繰り返され、CXO に到達するか条件を満たさなくなるまで続く。
+
+\subsection{SimLoad の計算}
+TaskAgent の受信・送信・報告・分割イベントごとに SimLoad を次式で更新する。
+\begin{align}
+\text{ReceiveLoad}(v) &\pluseq 1.0 \times w, \\
+\text{SendLoad}(v) &\pluseq 0.3 \times w, \\
+\text{ReportLoad}(v) &\pluseq 0.1 \times w, \\
+\text{SplitCost}(v) &\pluseq 0.2 \times w,
+\end{align}
+ここで $w$ は TaskWeight の総和である。ノード $v$ の SimLoad はこれらの和として定義し、最大値で正規化した上で度数中心性（degree centrality）と組み合わせて Score を算出する。
+
+\section{シミュレーション手順}
+
+\subsection{時間ステップとキュー処理}
+各シナリオは TIME\_STEPS=2000 で実行し、ステップごとに (1) すべてのノードでタスク生成、(2) キュー内 TaskAgent の状態遷移、(3) 次ステップ用キューへの移送、を行う。実装は \texttt{graph\_simulation.py} に定義した \texttt{OrganizationSimulation} クラスで管理し、親子の参照、キュー、LoadTracker、タスクカウンタなどを保持する。計算終了後は \texttt{networkx.degree\_centrality} を用いて各ノードの中心性を取得し、SimLoad と組み合わせて結果を整形する。
+
+\subsection{出力物}
+シミュレーション後は \texttt{RESULT.md} と \texttt{REPORT.md} を生成する。前者は全ノードの role, tasks, children, SimLoad, DegreeCentrality, Score を一覧化し、後者は役職別のトップノードや平均値をまとめる。FinalStudy の例では総ノード数 25731, Manager 2976 名, Player 22496 名が生成されており、SimLoad の上位ノードや役職ごとの分散が確認できる。
+
+\section{実装と再現性}
+
+\subsection{使用モジュール}
+主なコードは以下のように分割した。
+\begin{itemize}
+    \item newSimulations/forThesis/*/graph\_simulation.py：組織生成と TaskAgent シミュレーションのメインエントリ。
+    \item newSimulations/forThesis/*/task\_rules.py：TaskAgent、TaskWeight、タスク生成・分割・エスカレーションのルール。
+    \item .../refresh\_report.py, visualize\_results.py：Markdown 整形と可視化。
+\end{itemize}
+Python 3.11 と \texttt{networkx}, \texttt{matplotlib} を使用し、仮想環境配下で \texttt{python path/to/graph\_simulation.py} を実行するだけで再現できる。
+
+\subsection{乱数シードと性能対策}
+すべてのシナリオで seed=42 を統一しており、ノード構造とタスク流量の再現性を確保している。ノード数が 2--2.5 万規模に達するため、TaskAgent を dataclass で軽量化し、SimLoad の辞書キャッシュや中心性計算の回数削減などの最適化を施している。M3 クラスの Mac 環境で 1 シナリオあたり数分程度で完了する。
+
+\section{まとめ}
+
+本章では、実装済みのシミュレーション手法を基に、組織グラフの構築、TaskAgent の挙動、指標計算、スクリプト構成と再現性確保の方法を説明した。本手法は、組織構造パターン（Final, FinalStudy, BestPractice など）を切り替えながら負荷分布を比較できる実験基盤を提供しており、次章ではこれらのシナリオ実行結果を分析する。

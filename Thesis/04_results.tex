@@ -1,0 +1,38 @@
+\chapter{評価結果}
+\label{chap:results}
+
+本章では、実装したシミュレーションを 4 つの代表的シナリオ（Final, FinalStudy, afterReview12-24, BestPractice）に適用した結果を整理する。各シナリオについて、まずグラフ構造の前提を確認し、その上で SimLoad や役職別統計の傾向を記述する。
+
+\section{Final シナリオ}
+
+\subsection{グラフの概要}
+Final シナリオは SeniorManager の子数を 5--8 人に抑え、Manager が 10--20 名の Player を抱えることで「中間層の負荷軽減 + 実行層の厚み確保」を狙った構造である。CXO と Director 層は従来通り 15--20 / 10--15 人を維持しつつ、Manager 以下にタスク処理力を集約することで、分割・報告のボリュームを Player に近い層へ流す狙いがある。
+
+\subsection{結果}
+生成されたノードは合計 24,938 名で、Manager 1,526 名・Player 23,153 名と実働層が厚い構成になった。役職平均 SimLoad は CXO 40,580、Director 63,681、SeniorManager 83,677、Manager 71,895、Player 5,257 であり、最大 SimLoad は SeniorManager 層（約 98,000）に残る一方、Manager の平均負荷は FinalStudy よりも 10\% 程度高止まりした。SeniorManager の子数を抑えたことで分割数は減少したが、Escalation の戻り先が狭まり負荷が一部のノードに集中する傾向が観測された。
+
+\section{FinalStudy シナリオ}
+
+\subsection{グラフの概要}
+FinalStudy は CXO から Manager まですべての階層で 15--20 / 10--15 / 10--15 / 5--10 のベースラインレンジを用いた 5 層ツリーであり、現状組織のボトルネックを把握するための標準シナリオである。全階層がほぼ一様に扇状度を持つため、タスク流量は SeniorManager, Manager 層へ直線的に集中しやすい。
+
+\subsection{結果}
+総ノード数は 25,731 で、Manager 2,976 名・Player 22,496 名が生成された。役職平均 SimLoad は CXO 47,789、Director 70,990、SeniorManager 94,420、Manager 64,903、Player 7,636 であり、中間層の負荷が全体の 70\% 以上を占める。SeniorManager の最大 SimLoad は 106,551 に達し、上位 10 ノードが Director 以上の 2 倍の負荷を引き受ける構図が確認できた。タスク報告・Escalation の戻りが多段で発生するため、Manager 層にも 5.6 万超の平均タスク処理が発生し、ボトルネックが顕在化している。
+
+\section{afterReview12-24 シナリオ}
+
+\subsection{グラフの概要}
+afterReview12-24 は FinalStudy と同じ子ノードレンジを保ちつつ、インタビュー後のヒアリング内容をタスクルールに反映したシナリオである。タスク生成確率や TaskWeight は同一だが、レビュー後の観察ポイントに合わせて記録フォーマット（RESULT/REPORT/SORTEDRESULT）を更新し、比較指標を揃えている。
+
+\subsection{結果}
+ノード数は 25,731 で FinalStudy と同規模だが、Director 以下の平均タスク数がわずかに増加（例：Director 平均 20,305 タスク）し、SimLoad も Director 70,990、SeniorManager 94,420、Manager 64,903 と FinalStudy とほぼ同じ値を示した。差分として、Manager 層の上位ノードは 73,839 の SimLoad に達し、報告オーバーヘッドが増大している。総じて、中間層の分散が取れていないという初期仮説を裏付ける結果となった。
+
+\section{BestPractice シナリオ}
+
+\subsection{グラフの概要}
+BestPractice は SeniorManager → Manager の扇状度を 8--9 へ絞り、Manager → Player を 14--16 へ拡張した構造である。Director も 12--14 人を抱えるよう再設定されており、全体として「中間層の標準配下数を均し、Player 層の頭数を確保する」ことにフォーカスしている。これは afterReview12-24 で得られた課題に対する改善案として実装した。
+
+\subsection{結果}
+総ノード数は 26,048 で、Manager 2,144 名・Player 23,634 名を確保した。役職平均 SimLoad は CXO 41,960、Director 73,296、SeniorManager 85,610、Manager 68,103、Player 6,151 となり、SeniorManager の平均負荷を FinalStudy 比で約 9\% 削減できた一方、Director の平均負荷はやや増加した。Manager 層の最大 SimLoad は 89,000 台に収まり、中間層全体の負荷分散が改善していることが確認できる。Player 層にも 6,600 程度の負荷が分配され、実行層の活用度が高まった。
+
+以上より、階層ごとの扇状度を調整することで SimLoad 分布を制御できること、特に SeniorManager と Manager の子数を明示的に制御する BestPractice 構造が、過度なボトルネックを緩和する有効な打ち手であることが示された。

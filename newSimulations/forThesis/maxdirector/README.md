@@ -1,30 +1,20 @@
 
-# BestPractice シナリオ概要
+# MaxDirector シナリオ概要
 
-SeniorManager の負荷を抑えつつ 5 層構造（CXO → Director → SeniorManager → Manager → Player）を維持するため、各層の扇状度を以下のように再設計しました。
+上位 3 層の扇状度を極端に小さく（各 5 名程度）し、Manager → Player を大規模に広げることで、Director 層に近いところで扇状度がほぼ 1 に近い構造を検証します。seed=42 では総ノード数が約 2.5 万（CXO 1 → Director 5 → SeniorManager 23 → Manager 209 → Player 25,081）となります。
 
-- CXO → Director: 15〜16 人  
-- Director → SeniorManager: 12〜14 人  
-- SeniorManager → Manager: 8〜10 人  
-- Manager → Player: 12〜14 人
-
-これにより中間層の配下数が均され、プレイヤー層の人数を確保しながらも SeniorManager のスプリット／報告負荷を軽減します。seed=42 の例では総ノード数が約 2.5 万となり、afterReview12-24 と同規模で比較可能です。
-
-派生案として、`graph_simulation_directorwide.py` では Director→SeniorManager を 16〜18 人に拡大し、SeniorManager→Manager は 8〜9 人のまま、Manager→Player を 10〜12 人へ抑える構造を試せます。
+- CXO → Director: 5 名（固定）  
+- Director → SeniorManager: 4〜6 名  
+- SeniorManager → Manager: 8〜10 名  
+- Manager → Player: 110〜130 名
 
 - 実行方法
   ```bash
   source .venv/bin/activate
-  cd newSimulations/forThesis/BestPractice
+  cd newSimulations/forThesis/maxdirector
   python graph_simulation.py
   ```
-  `RESULT.md`, `REPORT.md`, `SORTEDRESULT.md` などの生成物はこのフォルダ直下に出力されます。`refresh_report.py` / `visualize_results.py` も同様に利用できます。
-
-  Director→SeniorManager を大幅に広げた派生案を試す場合は、同ディレクトリで
-  ```bash
-  python graph_simulation_directorwide.py
-  ```
-  を実行してください。比較結果も `refresh_report.py` と `visualize_results.py` で確認できます。
+  生成物（`RESULT.md`, `REPORT.md`, `SORTEDRESULT.md` など）はこのフォルダ直下に出力されます。`refresh_report.py` / `visualize_results.py` も同様に利用できます。
 
 ---
 
