@@ -1,38 +1,225 @@
 \chapter{評価結果}
 \label{chap:results}
 
-本章では、実装したシミュレーションを 4 つの代表的シナリオ（Final, FinalStudy, afterReview12-24, BestPractice）に適用した結果を整理する。各シナリオについて、まずグラフ構造の前提を確認し、その上で SimLoad や役職別統計の傾向を記述する。
+本章では、第 3 章で設計した管理スパン変更実験の結果を報告する。「中間管理職の負荷を構造的に軽減するにはどうすればよいか？」という問いに対して、2 つの異なるアプローチを比較検証した。第一は\textbf{実験 A（効率化アプローチ）}であり、SM 人数を固定し各 SM の管理スパンを削減する。第二は\textbf{実験 B（分散化アプローチ）}であり、SM 人数を増やし総負荷を分散する。両実験とも InterviewBased シナリオをベースラインとし、総ノード数を約 25,000 に維持している。これにより、組織規模の影響を排除した上で、2 つのアプローチの効果を直接比較できる。
 
-\section{Final シナリオ}
+\section{実験設計とベースライン}
 
-\subsection{グラフの概要}
-Final シナリオは SeniorManager の子数を 5--8 人に抑え、Manager が 10--20 名の Player を抱えることで「中間層の負荷軽減 + 実行層の厚み確保」を狙った構造である。CXO と Director 層は従来通り 15--20 / 10--15 人を維持しつつ、Manager 以下にタスク処理力を集約することで、分割・報告のボリュームを Player に近い層へ流す狙いがある。
+本研究では、InterviewBased シナリオをベースラインとして、2 つの異なる管理スパン変更実験を実施する。InterviewBased シナリオは、実際の IT 企業へのインタビュー調査に基づいて設定した現実的な組織構造を反映している。管理スパンは、CXO が 15-20 人（平均 17.5）、Director が 10-15 人（平均 12.5）、SeniorManager が 10-15 人（平均 12.5）、Manager が 5-10 人（平均 7.5）である。
 
-\subsection{結果}
-生成されたノードは合計 24,938 名で、Manager 1,526 名・Player 23,153 名と実働層が厚い構成になった。役職平均 SimLoad は CXO 40,580、Director 63,681、SeniorManager 83,677、Manager 71,895、Player 5,257 であり、最大 SimLoad は SeniorManager 層（約 98,000）に残る一方、Manager の平均負荷は FinalStudy よりも 10\% 程度高止まりした。SeniorManager の子数を抑えたことで分割数は減少したが、Escalation の戻り先が狭まり負荷が一部のノードに集中する傾向が観測された。
+総ノード数は 25,731 名であり、CXO が 1 名、Director が 20 名、SeniorManager が 238 名、Manager が 2,976 名、Player が 22,496 名から構成される。
 
-\section{FinalStudy シナリオ}
+役職層別の平均 SimLoad は、CXO が 47,789、Director が 70,990、SeniorManager が 94,420（最大 106,551）、Manager が 64,903（最大 73,839）、Player が 7,636 である。SeniorManager 層の平均 SimLoad が最も高く、中間管理職への負荷集中を観測した。このベースラインに対して、実験 A と実験 B の 2 つのアプローチで管理スパンを変更し、負荷分布の変化を評価した。
 
-\subsection{グラフの概要}
-FinalStudy は CXO から Manager まですべての階層で 15--20 / 10--15 / 10--15 / 5--10 のベースラインレンジを用いた 5 層ツリーであり、現状組織のボトルネックを把握するための標準シナリオである。全階層がほぼ一様に扇状度を持つため、タスク流量は SeniorManager, Manager 層へ直線的に集中しやすい。
+\section{実験 A：効率化アプローチ}
 
-\subsection{結果}
-総ノード数は 25,731 で、Manager 2,976 名・Player 22,496 名が生成された。役職平均 SimLoad は CXO 47,789、Director 70,990、SeniorManager 94,420、Manager 64,903、Player 7,636 であり、中間層の負荷が全体の 70\% 以上を占める。SeniorManager の最大 SimLoad は 106,551 に達し、上位 10 ノードが Director 以上の 2 倍の負荷を引き受ける構図が確認できた。タスク報告・Escalation の戻りが多段で発生するため、Manager 層にも 5.6 万超の平均タスク処理が発生し、ボトルネックが顕在化している。
+本実験では、SeniorManager の人数を固定（238 名）したまま、各 SM の管理スパンを削減する。削減分のタスク処理能力は Manager 層で補うため、Mgr→Player スパンを増加させる。狙いは「1 人あたりの処理効率を向上させる」ことである。
 
-\section{afterReview12-24 シナリオ}
+\begin{table}[htbp]
+\centering
+\caption{実験 A のパラメータ設定}
+\label{tab:exp_a_params}
+\begin{tabular}{lcccc}
+\toprule
+シナリオ & SM→Mgr & 変化率 & Mgr→Player & 変化率 \\
+\midrule
+InterviewBased & [10, 15] & --- & [5, 10] & --- \\
+Step1 & [8, 11] & $-24\%$ & [8, 12] & $+33\%$ \\
+Step2 & [6, 9] & $-40\%$ & [12, 16] & $+87\%$ \\
+Step3 & [5, 7] & $-52\%$ & [15, 19] & $+127\%$ \\
+Step4 & [4, 6] & $-60\%$ & [18, 22] & $+167\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\subsection{グラフの概要}
-afterReview12-24 は FinalStudy と同じ子ノードレンジを保ちつつ、インタビュー後のヒアリング内容をタスクルールに反映したシナリオである。タスク生成確率や TaskWeight は同一だが、レビュー後の観察ポイントに合わせて記録フォーマット（RESULT/REPORT/SORTEDRESULT）を更新し、比較指標を揃えている。
+Table \ref{tab:exp_a_params} は、各ステップにおける管理スパンのパラメータ設定を示している。SM→Mgr スパンを段階的に削減し、Step4 では 60\% の削減を達成している。
 
-\subsection{結果}
-ノード数は 25,731 で FinalStudy と同規模だが、Director 以下の平均タスク数がわずかに増加（例：Director 平均 20,305 タスク）し、SimLoad も Director 70,990、SeniorManager 94,420、Manager 64,903 と FinalStudy とほぼ同じ値を示した。差分として、Manager 層の上位ノードは 73,839 の SimLoad に達し、報告オーバーヘッドが増大している。総じて、中間層の分散が取れていないという初期仮説を裏付ける結果となった。
+\begin{table}[htbp]
+\centering
+\caption{実験 A の SimLoad 結果}
+\label{tab:exp_a_results}
+\begin{tabular}{lrrrrr}
+\toprule
+シナリオ & 総ノード数 & SM 人数 & SM 平均 & Mgr 人数 & Mgr 平均 \\
+\midrule
+InterviewBased & 25,731 & 238 & 94,420 & 2,976 & 64,903 \\
+Step1 & 25,010 & 238 & 88,624 & 2,240 & 67,234 \\
+Step2 & 26,779 & 238 & 86,263 & 1,764 & 70,200 \\
+Step3 & 26,042 & 238 & 83,691 & 1,430 & 73,008 \\
+Step4 & 25,322 & 238 & 81,562 & 1,192 & 75,961 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\section{BestPractice シナリオ}
+Table \ref{tab:exp_a_results} より、総ノード数は全シナリオで 25,000〜27,000 の範囲に維持されている。SeniorManager の平均 SimLoad は 94,420 から 81,562 へ約 14\% 減少し、Manager の平均 SimLoad は 64,903 から 75,961 へ約 17\% 増加した。
 
-\subsection{グラフの概要}
-BestPractice は SeniorManager → Manager の扇状度を 8--9 へ絞り、Manager → Player を 14--16 へ拡張した構造である。Director も 12--14 人を抱えるよう再設定されており、全体として「中間層の標準配下数を均し、Player 層の頭数を確保する」ことにフォーカスしている。これは afterReview12-24 で得られた課題に対する改善案として実装した。
+\begin{table}[htbp]
+\centering
+\caption{実験 A の正規化 SimLoad}
+\label{tab:exp_a_normalized}
+\begin{tabular}{lrrrr}
+\toprule
+シナリオ & SM 平均タスク & Mgr 平均タスク & SM 正規化 & Mgr 正規化 \\
+\midrule
+InterviewBased & 35,406 & 56,625 & 2.67 & 1.15 \\
+Step1 & 35,345 & 72,986 & 2.51 & 0.92 \\
+Step2 & 38,457 & 99,355 & 2.24 & 0.71 \\
+Step3 & 38,067 & 119,697 & 2.20 & 0.61 \\
+Step4 & 37,318 & 139,376 & 2.19 & 0.55 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\subsection{結果}
-総ノード数は 26,048 で、Manager 2,144 名・Player 23,634 名を確保した。役職平均 SimLoad は CXO 41,960、Director 73,296、SeniorManager 85,610、Manager 68,103、Player 6,151 となり、SeniorManager の平均負荷を FinalStudy 比で約 9\% 削減できた一方、Director の平均負荷はやや増加した。Manager 層の最大 SimLoad は 89,000 台に収まり、中間層全体の負荷分散が改善していることが確認できる。Player 層にも 6,600 程度の負荷が分配され、実行層の活用度が高まった。
+Table \ref{tab:exp_a_normalized} の正規化 SimLoad（平均 SimLoad / 平均タスク数）では、SeniorManager は 2.67 から 2.19 へ約 18\% 減少し、Manager は 1.15 から 0.55 へ約 52\% 減少した。これは、両役職とも 1 タスクあたりの負荷が軽減されていることを示す。図 \ref{fig:exp_a_transition}（章末に掲載）より、SeniorManager の最高 SimLoad は 106,551 から 90,780 へ約 15\% 減少し、Manager の最高 SimLoad は 73,839 から 84,767 へ約 15\% 増加した。正規化 SimLoad では、両役職とも減少傾向を示している。
 
-以上より、階層ごとの扇状度を調整することで SimLoad 分布を制御できること、特に SeniorManager と Manager の子数を明示的に制御する BestPractice 構造が、過度なボトルネックを緩和する有効な打ち手であることが示された。
+\section{実験 B：分散化アプローチ}
+
+本実験では、Director→SM スパンを増加させ、SeniorManager の人数を増やす（238 → 398 名）。同時に各 SM の管理スパンも削減し、1 人あたりの負担を軽減する。狙いは「総負荷を多くの SM で分散する」ことである。総ノード数を維持するため、Mgr→Player のスパンも調整している。
+
+\begin{table}[htbp]
+\centering
+\caption{実験 B のパラメータ設定}
+\label{tab:exp_b_params}
+\begin{tabular}{lccccc}
+\toprule
+シナリオ & Dir→SM & 変化率 & SM→Mgr & 変化率 & Mgr→Player \\
+\midrule
+InterviewBased & [10, 15] & --- & [10, 15] & --- & [5, 10] \\
+Dir\_Step1 & [12, 17] & $+16\%$ & [8, 11] & $-24\%$ & [7, 10] \\
+Dir\_Step2 & [14, 19] & $+32\%$ & [6, 9] & $-40\%$ & [8, 11] \\
+Dir\_Step3 & [16, 21] & $+48\%$ & [5, 7] & $-52\%$ & [9, 12] \\
+Dir\_Step4 & [18, 23] & $+64\%$ & [4, 6] & $-60\%$ & [10, 13] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table \ref{tab:exp_b_params} は、各ステップにおける管理スパンのパラメータ設定を示している。Dir→SM スパンを段階的に増加させ、Step4 では 64\% の増加を達成している。
+
+\begin{table}[htbp]
+\centering
+\caption{実験 B の SimLoad 結果}
+\label{tab:exp_b_results}
+\begin{tabular}{lrrrrr}
+\toprule
+シナリオ & 総ノード数 & SM 人数 & SM 平均 & Mgr 人数 & Mgr 平均 \\
+\midrule
+InterviewBased & 25,731 & 238 & 94,420 & 2,976 & 64,903 \\
+Dir\_Step1 & 25,211 & 278 & 86,139 & 2,611 & 66,789 \\
+Dir\_Step2 & 25,129 & 318 & 80,979 & 2,348 & 68,762 \\
+Dir\_Step3 & 25,140 & 358 & 77,134 & 2,142 & 70,986 \\
+Dir\_Step4 & 25,343 & 398 & 74,369 & 1,985 & 73,176 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table \ref{tab:exp_b_results} より、総ノード数は約 25,000 で安定して維持されている。SeniorManager の人数は 238 名から 398 名へ 67\% 増加し、各 SM の平均負荷は 21\% 減少した。
+
+\begin{table}[htbp]
+\centering
+\caption{実験 B の正規化 SimLoad}
+\label{tab:exp_b_normalized}
+\begin{tabular}{lrrrr}
+\toprule
+シナリオ & SM 平均タスク & Mgr 平均タスク & SM 正規化 & Mgr 正規化 \\
+\midrule
+InterviewBased & 35,406 & 56,625 & 2.67 & 1.15 \\
+Dir\_Step1 & 30,699 & 63,225 & 2.81 & 1.06 \\
+Dir\_Step2 & 27,331 & 69,589 & 2.96 & 0.99 \\
+Dir\_Step3 & 25,025 & 76,593 & 3.08 & 0.93 \\
+Dir\_Step4 & 23,153 & 83,074 & 3.21 & 0.88 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table \ref{tab:exp_b_normalized} では、SeniorManager の正規化 SimLoad が 2.67 から 3.21 へ \textbf{20\% 増加}しており、実験 A（18\% 減少）とは対照的な傾向を示す。これは、SM の管理スパン削減により委譲先が減少し、1 タスクあたりの処理負荷が増加したことを示唆する。図 \ref{fig:exp_b_transition}（章末に掲載）より、SeniorManager の最高 SimLoad は 106,551 から 82,670 へ約 22\% 減少し、Manager の最高 SimLoad は 73,839 から 82,174 へ約 11\% 増加した。Dir\_Step4 では、SM 最高（82,670）と Mgr 最高（82,174）がほぼ同等となった。正規化 SimLoad では、SeniorManager が顕著に増加している（2.67 → 3.21）。
+
+\section{効率化 vs 分散化：実験間比較}
+
+\subsection{絶対値での比較}
+
+\begin{table}[htbp]
+\centering
+\caption{実験 A・B の Step4 比較（絶対値）}
+\label{tab:comparison_absolute}
+\begin{tabular}{lrrrr}
+\toprule
+指標 & InterviewBased & 実験 A Step4 & 実験 B Step4 & A-B 差 \\
+\midrule
+総ノード数 & 25,731 & 25,322 & 25,343 & $-21$ \\
+SM 人数 & 238 & 238 & 398 & $-160$ \\
+SM 平均 SimLoad & 94,420 & 81,562 & 74,369 & $+7,193$ \\
+Mgr 人数 & 2,976 & 1,192 & 1,985 & $-793$ \\
+Mgr 平均 SimLoad & 64,903 & 75,961 & 73,176 & $+2,785$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table \ref{tab:comparison_absolute} は、両実験の Step4 時点における絶対値での比較を示している。実験 B は実験 A と比較して以下の特徴がある。第一に、SM の平均負荷をより削減できる（74,369 vs 81,562）。第二に、SM の人数が増加する（398 vs 238）。第三に、Mgr の人数を多く維持できる（1,985 vs 1,192）。
+
+\subsection{正規化値での比較}
+
+\begin{table}[htbp]
+\centering
+\caption{実験 A・B の Step4 比較（正規化値）}
+\label{tab:comparison_normalized}
+\begin{tabular}{lrrr}
+\toprule
+指標 & InterviewBased & 実験 A Step4 & 実験 B Step4 \\
+\midrule
+SM 正規化 SimLoad & 2.67 & 2.19 & 3.21 \\
+Mgr 正規化 SimLoad & 1.15 & 0.55 & 0.88 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table \ref{tab:comparison_normalized} は、正規化 SimLoad の比較を示している。正規化値で見ると、実験 A は SM の 1 タスクあたり負荷を削減できる（2.19）が、実験 B は逆に増加する（3.21）。これは、実験 B では SM の管理スパンが削減されることで、委譲先が減り、各タスクを自身で処理する割合が増加するためと考えられる。
+
+\subsection{特徴比較}
+
+\begin{table}[htbp]
+\centering
+\caption{実験 A・B の特徴比較}
+\label{tab:comparison_features}
+\begin{tabular}{lll}
+\toprule
+指標 & 実験 A（効率化） & 実験 B（分散化） \\
+\midrule
+SM 人数 & 固定（238 名） & 67\% 増加（238 → 398 名） \\
+SM 絶対負荷 & 14\% 減少 & 21\% 減少 \\
+SM 正規化負荷 & 18\% 減少 & 20\% 増加 \\
+Mgr タスク数 & 146\% 増加 & 47\% 増加 \\
+特徴 & 1 人あたり効率向上 & 総負荷分散 \\
+トレードオフ & Mgr への負荷遷移 & 1 人あたり効率低下 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table \ref{tab:comparison_features} は、両実験の特徴を比較している。両実験から、「効率化」と「分散化」には明確な違いがあることが明らかになった。\textbf{実験 A（効率化アプローチ）}では、SM 人数を固定（238 名）したまま、SM 絶対負荷は 14\% 減少（94,420 → 81,562）し、SM 正規化負荷も 18\% 減少（2.67 → 2.19）した。ただし、Mgr タスク数は 146\% 増加（56,625 → 139,376）した。この特徴は、\textbf{1 人あたりの効率が向上}する一方で、Mgr への負荷遷移が大きいことを示している。一方、\textbf{実験 B（分散化アプローチ）}では、SM 人数が 67\% 増加（238 → 398 名）し、SM 絶対負荷は 21\% 減少（94,420 → 74,369）した。ただし、SM 正規化負荷は 20\% 増加（2.67 → 3.21）し、Mgr タスク数は 47\% 増加（56,625 → 83,074）した。この特徴は、\textbf{総負荷を分散}できる一方で、1 人あたりの効率は低下することを示している。
+
+\section{まとめ}
+
+本章では、「中間管理職の負荷を構造的に軽減するにはどうすればよいか？」という問いに対して、2 つのアプローチを比較検証した。
+
+第一に、\textbf{管理スパン削減は有効}であることを確認した。両実験とも、SM→Mgr スパンを削減することで SM の絶対負荷は減少した（実験 A: 14\% 減、実験 B: 21\% 減）。
+
+第二に、\textbf{効率化アプローチ（実験 A）}では、SM の 1 タスクあたり負荷が 18\% 減少し、処理効率が向上した。ただし、Mgr のタスク数が 146\% 増加し、Mgr への負荷遷移が大きかった。
+
+第三に、\textbf{分散化アプローチ（実験 B）}では、SM 人数が 67\% 増加し、絶対負荷は効率化より大きく減少した。ただし、1 タスクあたり負荷は 20\% 増加し、効率は低下した。
+
+第四に、\textbf{トレードオフの存在}が明らかになった。効率化は「Mgr への負荷遷移」、分散化は「1 人あたり効率の低下」というトレードオフがある。
+
+\clearpage
+
+\begin{figure}[p]
+\raggedright
+\includegraphics[width=0.072\textwidth]{figures/max_load_transition.png}
+\caption{実験 A：SimLoad の推移（(a) 役職別最高値、(b) 正規化値）}
+\label{fig:exp_a_transition}
+\end{figure}
+
+\begin{figure}[p]
+\raggedright
+\includegraphics[width=0.072\textwidth]{figures/dir_step_load_transition.png}
+\caption{実験 B：SimLoad の推移（(a) 役職別最高値、(b) 正規化値）}
+\label{fig:exp_b_transition}
+\end{figure}

@@ -1,12 +1,14 @@
 \chapter{提案手法}
 \label{chap:method}
 
-本章では、本研究で実際に実装した組織タスク負荷シミュレーション手法を詳細に述べる。研究目的は、中間管理職に集中する情報処理負荷を定量化し、構造パターンごとの偏りを評価することである。手法は、(1) 5 層階層組織のグラフモデル化、(2) TaskAgent によるタスク生成と流通のシミュレーション、(3) SimLoad と中心性を指標とした評価、(4) Python 実装および再現性確保の仕組み、の 4 つの要素から構成される。
+本章では、本研究で実際に実装した組織タスク負荷シミュレーション手法を詳細に述べる。研究目的は、中間管理職に集中する情報処理負荷を定量化し、構造パターンごとの偏りを評価することである。手法は、(1) 5 層階層組織のグラフモデル化、(2) TaskAgent によるタスク生成と流通のシミュレーション、(3) SimLoad を指標とした負荷評価、(4) Python 実装および再現性確保の仕組み、の 4 つの要素から構成される。
 
 \section{組織グラフモデル}
 
 \subsection{階層構造と子ノード範囲}
-対象組織は CXO $\rightarrow$ Director $\rightarrow$ SeniorManager $\rightarrow$ Manager $\rightarrow$ Player の 5 層で構成される。階層間の子ノード数はシナリオごとにレンジを持たせ、乱数により具体的な扇状度を決定する。FinalStudy では
+対象組織は CXO $\rightarrow$ Director $\rightarrow$ SeniorManager $\rightarrow$ Manager $\rightarrow$ Player の 5 層で構成される。階層間の子ノード数はシナリオごとにレンジを持たせ、乱数により具体的な扇状度を決定する。ここで、$|Child_{\text{Role}}|$ は当該役職（Role）が持つ直属の部下の数を表す。例えば $|Child_{CXO}| \in [15, 20]$ は、CXO が 15 人から 20 人の Director を直接管理することを意味する。
+
+本研究の主要な実験シナリオである InterviewBased では、実務者へのインタビュー調査に基づいて以下のように設定する。
 \[
 \begin{aligned}
 |Child_{CXO}| &\in [15, 20], \\
@@ -15,7 +17,6 @@
 |Child_{Manager}| &\in [5, 10]
 \end{aligned}
 \]
-と設定し、中間層に幅広い子数を持たせて現在の偏りを再現した。一方 Final シナリオは Manager 層を 1526 名に抑えつつ Player を 2.3 万名規模に確保する構造を採用し、BestPractice では SeniorManager の子数を 8--9、人員負荷の大きい Manager は 14--16 の配下を持つよう再設計している。
 
 \subsection{ノード属性とエッジ}
 グラフ $G = (V, E)$ の各ノード $v \in V$ には role, children, tasks, sim\_load などの属性を付与する。エッジ集合 $E$ は親子関係を表す有向エッジであり、TaskAgent の移動はこの階層エッジを経由して行う。各ノードには入出力キューを持たせ、タスク滞留量を追跡することで、実務で発生する案件の渋滞状況を模擬する。
@@ -30,45 +31,184 @@ TaskAgent はタスクを表す最小単位であり、\texttt{task\_rules.py} �
 
 \subsection{移動・分割・報告ルール}
 TaskAgent が子ノードを持つ役職に滞在し、状態が Created/Delegated のときは以下のルールで処理する。
-\begin{itemize}
-    \item Director と Manager はタスクの 60\% を 3 分割して子ノードへ渡し、残り 40\% を自分で保持する。分割時には $0.2w$ の分割コストを自身の SimLoad に加算する。
-    \item 子ノード選択は「SimLoad が最も低いノード」を 60\% の確率で選び、残りはランダム選択とすることで過負荷集中を緩和する。
-    \item 子ノードを持たない場合は InProgress へ移行し、自ノードで処理する。
-\end{itemize}
-タスクが Done になると親ノードへ報告し、受信側には $0.1w$ の負荷を追加する。その後、総重量が 30 以上または 5\% の確率で Escalation が発生し、上位ノードへ再送される。Escalation は親が存在する限り繰り返され、CXO に到達するか条件を満たさなくなるまで続く。
+
+Director、SeniorManager、Manager はタスクを全ての子ノードに分割して委譲する。分割比率は各子ノードについて「$1.0 + 0.5 \times \text{孫ノード数}$」で重み付けし、孫ノードが多い子ノードほど多くのタスクを受け取る。この分割比率は本研究において独自に設定した値である。分割時には $0.2w$ の分割コストを自身の SimLoad に加算する。
+
+CXO は 1 つの子ノードにタスクを委譲する。委譲先は「SimLoad が最も低いノード」を 60\% の確率で選択し、40\% はランダムに選択する。この 60\% という確率は本研究において独自に設定した値であり、過負荷集中を緩和しつつ多様性を保つことを目的とする。
+
+子ノードを持たない場合は InProgress へ移行し、自ノードで処理する。
+
+タスクが Done になると親ノードへ報告し、受信側には $0.1w$ の負荷を追加する。報告後、一定の確率で Escalation が発生し、上位ノードへ再送される。Escalation は親が存在する限り繰り返され、CXO に到達するか条件を満たさなくなるまで続く。
 
 \subsection{SimLoad の計算}
 TaskAgent の受信・送信・報告・分割イベントごとに SimLoad を次式で更新する。
 \begin{align}
-\text{ReceiveLoad}(v) &\pluseq 1.0 \times w, \\
-\text{SendLoad}(v) &\pluseq 0.3 \times w, \\
-\text{ReportLoad}(v) &\pluseq 0.1 \times w, \\
-\text{SplitCost}(v) &\pluseq 0.2 \times w,
+\text{ReceiveLoad}(v) &\mathrel{+}= 1.0 \times w, \\
+\text{SendLoad}(v) &\mathrel{+}= 0.3 \times w, \\
+\text{ReportLoad}(v) &\mathrel{+}= 0.1 \times w, \\
+\text{SplitCost}(v) &\mathrel{+}= 0.2 \times w,
 \end{align}
-ここで $w$ は TaskWeight の総和である。ノード $v$ の SimLoad はこれらの和として定義し、最大値で正規化した上で度数中心性（degree centrality）と組み合わせて Score を算出する。
+ここで $w$ は TaskWeight の総和である。各係数（1.0、0.3、0.1、0.2）は本研究において独自に設定した値であり、タスク受信時を基準負荷（1.0）として、送信や報告に伴う調整コストを相対的に表現している。ノード $v$ の SimLoad はこれらの和として定義する。本研究では、この SimLoad を各ノードの負荷指標として用いる。
 
 \section{シミュレーション手順}
 
 \subsection{時間ステップとキュー処理}
-各シナリオは TIME\_STEPS=2000 で実行し、ステップごとに (1) すべてのノードでタスク生成、(2) キュー内 TaskAgent の状態遷移、(3) 次ステップ用キューへの移送、を行う。実装は \texttt{graph\_simulation.py} に定義した \texttt{OrganizationSimulation} クラスで管理し、親子の参照、キュー、LoadTracker、タスクカウンタなどを保持する。計算終了後は \texttt{networkx.degree\_centrality} を用いて各ノードの中心性を取得し、SimLoad と組み合わせて結果を整形する。
+各シナリオは TIME\_STEPS=2000 で実行し、ステップごとに (1) すべてのノードでタスク生成、(2) キュー内 TaskAgent の状態遷移、(3) 次ステップ用キューへの移送、を行う。実装は \texttt{graph\_simulation.py} に定義した \texttt{OrganizationSimulation} クラスで管理し、親子の参照、キュー、LoadTracker、タスクカウンタなどを保持する。
 
 \subsection{出力物}
-シミュレーション後は \texttt{RESULT.md} と \texttt{REPORT.md} を生成する。前者は全ノードの role, tasks, children, SimLoad, DegreeCentrality, Score を一覧化し、後者は役職別のトップノードや平均値をまとめる。FinalStudy の例では総ノード数 25731, Manager 2976 名, Player 22496 名が生成されており、SimLoad の上位ノードや役職ごとの分散が確認できる。
+シミュレーション後は \texttt{RESULT.md} と \texttt{REPORT.md} を生成する。前者は全ノードの role, tasks, children, SimLoad を一覧化し、後者は役職別のトップノードや平均値をまとめる。
 
 \section{実装と再現性}
 
 \subsection{使用モジュール}
-主なコードは以下のように分割した。
-\begin{itemize}
-    \item newSimulations/forThesis/*/graph\_simulation.py：組織生成と TaskAgent シミュレーションのメインエントリ。
-    \item newSimulations/forThesis/*/task\_rules.py：TaskAgent、TaskWeight、タスク生成・分割・エスカレーションのルール。
-    \item .../refresh\_report.py, visualize\_results.py：Markdown 整形と可視化。
-\end{itemize}
+主なコードは以下のように分割する。newSimulations/forThesis/*/graph\_simulation.py は組織生成と TaskAgent シミュレーションのメインエントリである。newSimulations/forThesis/*/task\_rules.py は TaskAgent、TaskWeight、タスク生成・分割・エスカレーションのルールを定義する。refresh\_report.py および visualize\_results.py は Markdown 整形と可視化を担当する。
+
 Python 3.11 と \texttt{networkx}, \texttt{matplotlib} を使用し、仮想環境配下で \texttt{python path/to/graph\_simulation.py} を実行するだけで再現できる。
 
 \subsection{乱数シードと性能対策}
-すべてのシナリオで seed=42 を統一しており、ノード構造とタスク流量の再現性を確保している。ノード数が 2--2.5 万規模に達するため、TaskAgent を dataclass で軽量化し、SimLoad の辞書キャッシュや中心性計算の回数削減などの最適化を施している。M3 クラスの Mac 環境で 1 シナリオあたり数分程度で完了する。
+すべてのシナリオで seed=42 を統一しており、ノード構造とタスク流量の再現性を確保している。ノード数が 2--2.5 万規模に達するため、TaskAgent を dataclass で軽量化し、SimLoad の辞書キャッシュなどの最適化を施している。M3 クラスの Mac 環境で 1 シナリオあたり数分程度で完了する。
+
+\section{実験設計：管理スパン変更による負荷軽減アプローチの比較}
+
+\subsection{研究の問いと実験の目的}
+
+本研究の核心的な問いは「中間管理職の負荷を構造的に軽減するにはどうすればよいか？」である。
+この問いに答えるため、管理スパン（Span of Control）を段階的に変更する 2 つの実験を設計した。
+
+中間管理職（特に SeniorManager）の負荷を軽減するアプローチには、大きく分けて 2 つの方向性がある。
+
+\textbf{アプローチ 1（効率化、実験 A）}では、SeniorManager の人数は固定したまま各 SM の管理スパンを削減する。削減分のタスク処理能力は Manager 層で補うため、Mgr→Player スパンを増加させる。狙いは 1 人あたりの処理効率を向上させることである。
+
+\textbf{アプローチ 2（分散化、実験 B）}では、Director→SM スパンを増加させ、SeniorManager の人数を増やす。各 SM の管理スパンも削減し、1 人あたりの負担を軽減する。狙いは総負荷を多くの SM で分散することである。
+
+この 2 つのアプローチを比較することで、以下の問いに答える。\textbf{Q1:} 管理スパン削減は SeniorManager の負荷軽減に有効か。\textbf{Q2:} 効率化と分散化では、負荷軽減の効果にどのような違いがあるか。\textbf{Q3:} それぞれのアプローチにはどのようなトレードオフがあるか。\textbf{Q4:} 組織の目標に応じて、どちらのアプローチを選択すべきか。
+
+\subsection{ベースラインシナリオ：InterviewBased}
+
+実験のベースラインとして、InterviewBased シナリオを設定する。このシナリオは、実際の IT 企業の異なる階層に位置する 3 名へのインタビュー調査に基づいてパラメータを設定したものである。インタビュー対象者は、50〜100 名規模の企業の CXO、1000〜1500 名規模の企業の Director、および同規模の企業の SeniorManager である。これにより、異なる組織規模と役職レベルにおける実務的な管理スパンの実態を反映する。
+
+InterviewBased の管理スパンは以下の通りである。
+\[
+\begin{aligned}
+|Child_{CXO}|            &\in &[15, 20], &\quad \text{平均 } &17.5 \\
+|Child_{Director}|       &\in &[10, 15], &\quad \text{平均 } &12.5 \\
+|Child_{SeniorManager}|  &\in &[10, 15], &\quad \text{平均 } &12.5 \\
+|Child_{Manager}|        &\in &[5, 10],  &\quad \text{平均 } &7.5
+\end{aligned}
+\]
+
+インタビュー調査では、SeniorManager が 10-15 人の Manager を管理し、その調整コストが大きな負担となっていることを確認した。また、Manager は 5-10 人の Player を管理しているが、Player 層のタスク生成頻度が低いため、Manager の負荷は相対的に小さい傾向がある。
+
+\subsection{実験 A：効率化アプローチ（SM→Mgr 削減・Mgr→Player 増加）}
+
+実験 A では、SeniorManager の人数を固定したまま、管理スパンを段階的に削減する。
+総ノード数を維持するため、Manager→Player スパンを増加させる。
+
+各ステップのパラメータは以下の通りである。
+
+\textbf{Step1: 緩やかな変更}
+\[
+\begin{aligned}
+|Child_{SeniorManager}| &\in &[8, 11],  &\quad \text{平均 } &9.5  \quad (-24\%) \\
+|Child_{Manager}|       &\in &[8, 12],  &\quad \text{平均 } &10.0 \quad (+33\%)
+\end{aligned}
+\]
+
+\textbf{Step2: 中程度の変更}
+\[
+\begin{aligned}
+|Child_{SeniorManager}| &\in &[6, 9],   &\quad \text{平均 } &7.5  \quad (-40\%) \\
+|Child_{Manager}|       &\in &[12, 16], &\quad \text{平均 } &14.0 \quad (+87\%)
+\end{aligned}
+\]
+
+\textbf{Step3: 大幅な変更}
+\[
+\begin{aligned}
+|Child_{SeniorManager}| &\in &[5, 7],   &\quad \text{平均 } &6.0  \quad (-52\%) \\
+|Child_{Manager}|       &\in &[15, 19], &\quad \text{平均 } &17.0 \quad (+127\%)
+\end{aligned}
+\]
+
+\textbf{Step4: 極端な変更}
+\[
+\begin{aligned}
+|Child_{SeniorManager}| &\in &[4, 6],   &\quad \text{平均 } &5.0  \quad (-60\%) \\
+|Child_{Manager}|       &\in &[18, 22], &\quad \text{平均 } &20.0 \quad (+167\%)
+\end{aligned}
+\]
+
+CXO と Director の管理スパンは全シナリオで固定し、
+変更による影響が SeniorManager と Manager 層に明確に現れるようにする。
+
+\subsection{実験 B：分散化アプローチ（Dir→SM 増加・SM→Mgr 削減）}
+
+実験 B では、Director→SeniorManager スパンを増加させ、SM の人数を増やす。
+同時に SM→Mgr スパンを削減し、各 SM の負担を軽減する。
+
+各ステップのパラメータは以下の通りである。
+
+\textbf{Dir\_Step1: 緩やかな変更}
+\[
+\begin{aligned}
+|Child_{Director}|      &\in &[12, 17], &\quad \text{平均 } &14.5 \quad (+16\%) \\
+|Child_{SeniorManager}| &\in &[8, 11],  &\quad \text{平均 } &9.5  \quad (-24\%) \\
+|Child_{Manager}|       &\in &[7, 10],  &\quad &\text{（ノード数調整）}
+\end{aligned}
+\]
+
+\textbf{Dir\_Step2: 中程度の変更}
+\[
+\begin{aligned}
+|Child_{Director}|      &\in &[14, 19], &\quad \text{平均 } &16.5 \quad (+32\%) \\
+|Child_{SeniorManager}| &\in &[6, 9],   &\quad \text{平均 } &7.5  \quad (-40\%) \\
+|Child_{Manager}|       &\in &[8, 11],  &\quad &\text{（ノード数調整）}
+\end{aligned}
+\]
+
+\textbf{Dir\_Step3: 大幅な変更}
+\[
+\begin{aligned}
+|Child_{Director}|      &\in &[16, 21], &\quad \text{平均 } &18.5 \quad (+48\%) \\
+|Child_{SeniorManager}| &\in &[5, 7],   &\quad \text{平均 } &6.0  \quad (-52\%) \\
+|Child_{Manager}|       &\in &[9, 12],  &\quad &\text{（ノード数調整）}
+\end{aligned}
+\]
+
+\textbf{Dir\_Step4: 極端な変更}
+\[
+\begin{aligned}
+|Child_{Director}|      &\in &[18, 23], &\quad \text{平均 } &20.5 \quad (+64\%) \\
+|Child_{SeniorManager}| &\in &[4, 6],   &\quad \text{平均 } &5.0  \quad (-60\%) \\
+|Child_{Manager}|       &\in &[10, 13], &\quad &\text{（ノード数調整）}
+\end{aligned}
+\]
+
+実験 A と B の Step4 では、SM→Mgr スパンを同じ [4, 6] に設定する。
+これにより、「SM 人数を固定して効率化」と「SM 人数を増やして分散」の効果を直接比較できる。
+
+\subsection{評価指標}
+
+各シナリオの実行結果は、絶対値と正規化値の両方を測定することで多面的な評価を行う。
+
+絶対値指標（SimLoad）としては、役職層内の全ノードの SimLoad の平均値（平均 SimLoad）、役職層内で最も負荷の高いノードの SimLoad（最大 SimLoad）、および役職層別のノード数（組織構造の変化を追跡）を用いる。
+
+正規化指標（1 タスクあたりの負荷）としては、平均 SimLoad を平均タスク数で除した正規化 SimLoad を用いる。これはタスク 1 件あたりの処理負荷を表し、効率性の指標となる。
+
+比較の観点として、効率化と分散化のどちらが効果的か（同じ総ノード数での比較）、総負荷の減少と効率性の変化は一致するか（絶対値と正規化値の比較）、負荷遷移のパターンはどう異なるか（SeniorManager と Manager の比較）を検証する。
+
+これらの指標を実験 A・B で比較することで、2 つのアプローチの効果とトレードオフを定量的に評価する。
+
+\subsection{実験実施手順}
+
+各シナリオは以下の手順で実行する。まずシナリオファイル（\texttt{graph\_simulation.py}）に管理スパンのパラメータを設定する。次にシミュレーションを実行する（seed=42 で固定し、再現性を確保）。その後、\texttt{RESULT.md} に全ノードの詳細結果を出力し、\texttt{visualize\_results.py} で可視化（役職別平均、上位ノード、極値比較）を行い、\texttt{refresh\_report.py} で役職別極値レポートを生成する。
+
+全シナリオを同一環境で実行することで、公平な比較を可能にする。
 
 \section{まとめ}
 
-本章では、実装済みのシミュレーション手法を基に、組織グラフの構築、TaskAgent の挙動、指標計算、スクリプト構成と再現性確保の方法を説明した。本手法は、組織構造パターン（Final, FinalStudy, BestPractice など）を切り替えながら負荷分布を比較できる実験基盤を提供しており、次章ではこれらのシナリオ実行結果を分析する。
+本章では、実装済みのシミュレーション手法を基に、組織グラフの構築、TaskAgent の挙動、指標計算、スクリプト構成と再現性確保の方法を説明した。
+
+さらに、「中間管理職の負荷を構造的に軽減するにはどうすればよいか？」という研究の問いに答えるため、2 つの実験を設計した。実験 A（効率化）は SM 人数を固定し、SM→Mgr スパンを削減し、Mgr→Player スパンを増加させる。実験 B（分散化）は Dir→SM スパンを増加させて SM 人数を増やし、SM→Mgr スパンを削減する。
+
+両実験とも総ノード数を約 25,000 に維持し、組織規模の影響を排除した上で管理スパン変更の効果を比較する設計とする。次章では、これらの実験結果を分析し、2 つのアプローチの効果とトレードオフを明らかにする。

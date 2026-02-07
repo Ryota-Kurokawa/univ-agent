@@ -1,0 +1,321 @@
+\documentclass[aspectratio=169,12pt]{beamer}
+\usetheme{Madrid}
+\usecolortheme{default}
+
+% LuaLaTeX用日本語設定
+\usepackage{luatexja}
+\usepackage[haranoaji]{luatexja-preset}
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+
+\title{中間管理職の負荷問題に関する組織構造研究}
+\subtitle{エージェントベースシミュレーションによる定量的分析}
+\author{黒川 良太}
+\institute{古谷研究室}
+\date{2026年1月}
+
+\begin{document}
+
+% スライド1: タイトル
+\begin{frame}
+\titlepage
+\end{frame}
+
+% スライド2: 研究背景・問題意識
+\begin{frame}{研究背景・問題意識}
+\begin{itemize}
+\item 現代の知識集約型企業において、中間管理職の業務負荷が過度に高まっている
+\item 中間管理職は上位層からの戦略的指示と現場からの報告・相談を同時に処理する「サンドイッチ状態」
+\item タスク分割、調整、報告受信といった\textbf{不可視の業務}が集中
+\end{itemize}
+
+\vspace{0.5cm}
+\begin{block}{従来の捉え方}
+個人の能力不足として扱われることが多い
+\end{block}
+
+\begin{alertblock}{本研究の視点}
+組織構造とタスクフローに起因する\textbf{構造的問題}として捉える
+\end{alertblock}
+\end{frame}
+
+% スライド3: 研究目的
+\begin{frame}{研究目的}
+\begin{enumerate}
+\item \textbf{中間管理職への負荷集中の定量的確認}
+  \begin{itemize}
+  \item SimLoad（シミュレーション負荷）を用いた定量化
+  \end{itemize}
+
+\item \textbf{管理スパン変更が負荷分布に与える影響の解明}
+  \begin{itemize}
+  \item 管理スパン（Span of Control）を段階的に変更
+  \end{itemize}
+
+\item \textbf{負荷軽減のための組織構造最適化手法の提案}
+  \begin{itemize}
+  \item 2つの異なるアプローチを比較検証
+  \end{itemize}
+\end{enumerate}
+\end{frame}
+
+% スライド4: 提案手法（概要）
+\begin{frame}{提案手法：概要}
+\begin{block}{エージェントベースシミュレーション}
+組織をグラフとしてモデル化し、タスクの流れを再現
+\end{block}
+
+\begin{columns}
+\begin{column}{0.5\textwidth}
+\textbf{組織モデル}
+\begin{itemize}
+\item 5層階層組織
+\item 総ノード数：約25,000
+\item CXO → Director → SeniorManager → Manager → Player
+\end{itemize}
+\end{column}
+
+\begin{column}{0.5\textwidth}
+\textbf{TaskAgent}
+\begin{itemize}
+\item タスクを表現
+\item 組織内を移動・処理
+\item 負荷を定量化
+\end{itemize}
+\end{column}
+\end{columns}
+
+\vspace{0.5cm}
+\begin{itemize}
+\item パラメータ：IT企業3名へのインタビュー調査に基づく
+\item TIME\_STEPS=2000、seed=42で再現性確保
+\end{itemize}
+\end{frame}
+
+% スライド5: 提案手法（詳細）
+\begin{frame}{提案手法：SimLoad の計算}
+\begin{block}{SimLoad（シミュレーション負荷）の定義}
+各ノードがタスクを処理する際の負荷を以下のように定量化：
+\end{block}
+
+\begin{align*}
+\text{タスク受信} &: +1.0 \times w \\
+\text{タスク送信} &: +0.3 \times w \\
+\text{報告受信} &: +0.1 \times w \\
+\text{分割コスト} &: +0.2 \times w
+\end{align*}
+
+\vspace{0.3cm}
+ここで、$w$ は TaskWeight（難易度、関係者数、調整コスト、曖昧さの総和）
+
+\vspace{0.3cm}
+\begin{itemize}
+\item 各係数は本研究で独自に設定
+\item タスク受信を基準負荷（1.0）として、送信・報告の調整コストを相対評価
+\end{itemize}
+\end{frame}
+
+% スライド6: 実験設計
+\begin{frame}{実験設計：2つのアプローチ}
+\begin{columns}
+\begin{column}{0.48\textwidth}
+\begin{block}{実験A：効率化}
+\textbf{SM人数固定}で管理スパン削減
+\end{block}
+\begin{itemize}
+\item SM→Mgr: [10,15] → [4,6]
+\item Mgr→Player: [5,10] → [18,22]
+\item SM人数：238名（固定）
+\item 狙い：1人あたりの処理効率向上
+\end{itemize}
+\end{column}
+
+\begin{column}{0.48\textwidth}
+\begin{block}{実験B：分散化}
+\textbf{SM人数増加}で総負荷分散
+\end{block}
+\begin{itemize}
+\item Dir→SM: [10,15] → [18,23]
+\item SM→Mgr: [10,15] → [4,6]
+\item SM人数：238名 → 398名
+\item 狙い：総負荷の分散
+\end{itemize}
+\end{column}
+\end{columns}
+
+\vspace{0.5cm}
+\begin{itemize}
+\item 両実験とも4段階（Step1～4）で段階的に変更
+\item InterviewBased シナリオをベースライン
+\item 総ノード数を約25,000に維持（組織規模の影響を排除）
+\end{itemize}
+\end{frame}
+
+% スライド7: 結果（表）
+\begin{frame}{主要な結果：数値比較}
+\begin{table}
+\centering
+\begin{tabular}{lccc}
+\toprule
+& Baseline & 実験A (Step4) & 実験B (Step4) \\
+\midrule
+SM人数 & 238名 & 238名 & 398名 \\
+SM平均SimLoad & 94,420 & 81,562 & 74,369 \\
+\textbf{変化率} & --- & \textbf{-14\%} & \textbf{-21\%} \\
+\midrule
+SM正規化SimLoad & 2.67 & 2.19 & 3.21 \\
+\textbf{変化率} & --- & \textbf{-18\%} & \textbf{+20\%} \\
+\midrule
+Mgr平均タスク数 & 56,625 & 139,376 & 83,313 \\
+\textbf{変化率} & --- & \textbf{+146\%} & \textbf{+47\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.3cm}
+\begin{itemize}
+\item 両実験とも SM の絶対負荷は減少
+\item ただし、正規化負荷（効率）と総負荷分散のトレードオフが存在
+\end{itemize}
+\end{frame}
+
+% スライド8: 結果（まとめ）
+\begin{frame}{主要な結果：4つの発見}
+\begin{enumerate}
+\item \textbf{管理スパン削減は有効}
+  \begin{itemize}
+  \item 両実験とも SM→Mgr スパン削減により SM の絶対負荷は減少
+  \item 実験A: 14\%減、実験B: 21\%減
+  \end{itemize}
+
+\item \textbf{実験A：処理効率向上}
+  \begin{itemize}
+  \item SM の1タスクあたり負荷が18\%減少
+  \item ただし Mgr のタスク数が146\%増加（負荷遷移）
+  \end{itemize}
+
+\item \textbf{実験B：総負荷分散}
+  \begin{itemize}
+  \item SM 人数が67\%増加し、絶対負荷は21\%減少
+  \item ただし1タスクあたり負荷は20\%増加（効率低下）
+  \end{itemize}
+
+\item \textbf{負荷均衡点の存在}
+  \begin{itemize}
+  \item Step4で SM と Mgr の最高 SimLoad がほぼ均衡
+  \item 実験A: 90,780 vs 84,767、実験B: 82,670 vs 82,174
+  \end{itemize}
+\end{enumerate}
+\end{frame}
+
+% スライド9: 考察
+\begin{frame}{考察：トレードオフの存在}
+\begin{block}{本質的なトレードオフ}
+管理スパン最適化には、相反する2つの効果が存在
+\end{block}
+
+\begin{columns}
+\begin{column}{0.48\textwidth}
+\begin{alertblock}{実験A}
+「Mgrへの負荷遷移」
+\end{alertblock}
+\begin{itemize}
+\item SM の効率は向上
+\item Mgr の負荷が大幅増加
+\item \textbf{適用場面}：Mgr層に余裕がある組織
+\end{itemize}
+\end{column}
+
+\begin{column}{0.48\textwidth}
+\begin{alertblock}{実験B}
+「1人あたり効率の低下」
+\end{alertblock}
+\begin{itemize}
+\item 総負荷は分散
+\item 1人あたりの効率低下
+\item \textbf{適用場面}：負荷分散を優先する組織
+\end{itemize}
+\end{column}
+\end{columns}
+
+\vspace{0.5cm}
+\begin{itemize}
+\item 組織の総業務量は一定
+\item 特定の役職層の負荷だけを削減することは困難
+\end{itemize}
+\end{frame}
+
+% スライド10: 結論
+\begin{frame}{結論}
+\begin{block}{本研究の主要な貢献}
+中間管理職への負荷集中は組織構造に起因する\textbf{構造的問題}であることを定量的に示した
+\end{block}
+
+\begin{enumerate}
+\item \textbf{負荷集中の定量化}
+  \begin{itemize}
+  \item SeniorManager 層の平均 SimLoad が最も高い（94,420）
+  \end{itemize}
+
+\item \textbf{2つの最適化アプローチの提示}
+  \begin{itemize}
+  \item 効率化（実験A）と分散化（実験B）の効果とトレードオフを明確化
+  \end{itemize}
+
+\item \textbf{適切な管理スパンの確認}
+  \begin{itemize}
+  \item 5-6人程度が効率的であることを確認
+  \end{itemize}
+
+\item \textbf{定量的フレームワークの提供}
+  \begin{itemize}
+  \item 組織設計者が科学的根拠に基づいた意思決定を行うための基盤
+  \end{itemize}
+\end{enumerate}
+\end{frame}
+
+% スライド11: 今後の課題
+\begin{frame}{限界と今後の課題}
+\begin{block}{本研究の限界}
+\begin{itemize}
+\item 5層階層のツリー構造に限定（マトリクス型組織などは未対応）
+\item パラメータは限定的なインタビューに基づく設定
+\item 組織の動的変化（人員増減、再編成など）は未モデル化
+\end{itemize}
+\end{block}
+
+\begin{block}{今後の研究方向性}
+\begin{enumerate}
+\item 実際の企業データを用いた検証
+  \begin{itemize}
+  \item 負荷均衡点が実組織でも観測されるかを確認
+  \end{itemize}
+\item 実験A・Bの組み合わせによる最適解探索
+  \begin{itemize}
+  \item 多目的最適化手法の適用
+  \end{itemize}
+\item より多様な組織構造への拡張
+  \begin{itemize}
+  \item マトリクス型、ネットワーク型組織
+  \end{itemize}
+\item AI エージェントによる業務補助の効果検証
+\end{enumerate}
+\end{block}
+\end{frame}
+
+% スライド12: Thank you
+\begin{frame}
+\centering
+\Huge Thank you for your attention!
+
+\vspace{1cm}
+\Large
+ご清聴ありがとうございました
+
+\vspace{1cm}
+\normalsize
+質問・コメントをお待ちしております
+\end{frame}
+
+\end{document}
